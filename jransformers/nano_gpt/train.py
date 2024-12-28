@@ -16,45 +16,49 @@ seed = 42
 def get_optimizers(
     model: model.GPT, weight_decay: float, learning_rate: float, betas: Tuple
 ):
-    # Collect all parameters from the model
-    param_dict = eqx.filter(model, eqx.is_array)
-
-    # Divide parameters into groups based on their dimensionality    
-    decay_params = {k: v for k, v in param_dict.items() if v.ndim >= 2}
-    nodecay_params = {k: v for k, v in param_dict.items() if v.ndim < 2}
 
     # Weight decay optimizer
     decay_optimizer = optax.chain(
         optax.add_decayed_weights(weight_decay),  # Apply weight decay
         optax.adamw(learning_rate=learning_rate, b1=betas[0], b2=betas[1]),
     )
-
     # No weight decay optimizer
     nodecay_optimizer = optax.adamw(
         learning_rate=learning_rate, b1=betas[0], b2=betas[1]
     )
 
+    # Divide parameters into groups based on their dimensionality
+    def is_decay_weight(leaf):
+        # Any parameters that is 2D will be weight decayed, otherwise no.
+        # all weight tensors in matmuls + embeddings decay.
+        # all biases and layernorms don't.        
+        return eqx.is_array(leaf) and leaf.ndim >= 2
+
+    def get_param_label(leaf):
+        if is_decay_weight(leaf):
+            return "decay"
+        return "nodecay"
+
+    param_labels = jax.tree_map(get_param_label, model)
+    eqx.tree_pprint(param_labels)
     # Combine the two optimizers into one
     optimizer = optax.multi_transform(
         transforms={
             "decay": decay_optimizer,
             "nodecay": nodecay_optimizer,
         },
-        param_labels={
-            **{k: "decay" for k in decay_params},
-            **{k: "nodecay" for k in nodecay_params},
-        },
+        param_labels=param_labels,
     )
 
     # Count parameters for logging
-    num_decay_params = sum(v.size for v in decay_params.values())
-    num_nodecay_params = sum(v.size for v in nodecay_params.values())
-    print(
-        f"num decayed parameter tensors: {len(decay_params)}, with {num_decay_params:,} parameters"
-    )
-    print(
-        f"num non-decayed parameter tensors: {len(nodecay_params)}, with {num_nodecay_params:,} parameters"
-    )
+    # num_decay_params = sum(v.size for v in decay_weights.values())
+    # num_nodecay_params = sum(v.size for v in nodecay_weights.values())
+    # print(
+    #     f"num decayed parameter tensors: {len(decay_weights)}, with {num_decay_params:,} parameters"
+    # )
+    # print(
+    #     f"num non-decayed parameter tensors: {len(nodecay_weights)}, with {num_nodecay_params:,} parameters"
+    # )
     return optimizer
 
 
