@@ -31,7 +31,7 @@ def get_optimizers(
     def is_decay_weight(leaf):
         # Any parameters that is 2D will be weight decayed, otherwise no.
         # all weight tensors in matmuls + embeddings decay.
-        # all biases and layernorms don't.        
+        # all biases and layernorms don't.
         return eqx.is_array(leaf) and leaf.ndim >= 2
 
     def get_param_label(leaf):
@@ -39,15 +39,15 @@ def get_optimizers(
             return "decay"
         return "nodecay"
 
-    param_labels = jax.tree_map(get_param_label, model)
-    eqx.tree_pprint(param_labels)
+    param_labels = jax.tree_util.tree_map(get_param_label, model)
+    # eqx.tree_pprint(param_labels)
     # Combine the two optimizers into one
     optimizer = optax.multi_transform(
         transforms={
             "decay": decay_optimizer,
             "nodecay": nodecay_optimizer,
         },
-        param_labels=param_labels,
+        param_labels=lambda _: param_labels,
     )
 
     # Count parameters for logging
@@ -73,21 +73,23 @@ def compute_grads(
     x: Float[Array, "batch seq_len"],
     y: Float[Array, "batch seq_len"],
 ):
-    sub_keys = jax.random.split(key, x.shape[0])
+    batch_size = x.shape[0]
+    sub_keys = jax.random.split(key, batch_size)
     logits = jax.vmap(model, in_axes=(0, 0, 0))(sub_keys, x, y)  # (batch_size,)
     loss = get_loss(logits, y)
     return jnp.mean(loss)
 
 
-@eqx.filter_jit
+# @eqx.filter_jit
 def step(
+    key: PRNGKeyArray,
     model: model.GPT,
     optimizer: optax.GradientTransformation,
     state: optax.OptState,
     batch_data: Float[Array, "batch seq_len"],
 ):
     x, y = batch_data
-    loss, grads = compute_grads(model, x, y)
+    loss, grads = compute_grads(model, key, x, y)
     updates, new_state = optimizer.update(grads, state)
     model = eqx.apply_updates(model, updates)
     return model, new_state, loss
@@ -104,21 +106,21 @@ def eval(
 
 def train(train_config: config.TrainConfig, model_config: config.GPTConfig):
     key = jax.random.PRNGKey(seed)
-    key, data_key, model_key = jax.random.split(key, 3)
+    train_key, data_key, model_key = jax.random.split(key, 3)
 
     # Initialize the model
     gpt = model.GPT(model_key, model_config)
-
+    model_params = eqx.filter(gpt, eqx.is_inexact_array)
     # Initialize the optimizer
     optimizer = get_optimizers(
-        gpt,
+        model_params,  # model_params has a __call__ method, which causes an error so we wrap it in a lambda
         train_config.weight_decay,
         train_config.learning_rate,
         (train_config.beta1, train_config.beta2),
     )
 
     # Initialize the optimizer state
-    state = optimizer.init(gpt)
+    state = optimizer.init(model_params)
 
     # Get the infinite dataloader
     train_dataloader = data.get_infinite_dataloader(
@@ -130,7 +132,7 @@ def train(train_config: config.TrainConfig, model_config: config.GPTConfig):
 
     for i in range(train_config.num_steps):
         train_batch = next(train_dataloader)
-        gpt, state, loss = step(gpt, optimizer, state, train_batch)
+        gpt, state, loss = step(train_key, gpt, optimizer, state, train_batch)
 
         if i % train_config.log_interval == 0:
             print(f"Step {i}, Loss: {loss}")
