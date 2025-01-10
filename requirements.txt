@@ -1,0 +1,7 @@
+datasets
+equinox
+jax
+jaxlib
+jaxtyping
+optax
+simple-parsing
