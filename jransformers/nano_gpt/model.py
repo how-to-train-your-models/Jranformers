@@ -186,8 +186,9 @@ class GPT(eqx.Module):
         if not inference:
             logits = jax.vmap(self.lm_head)(x)  # (n_tokens, vocab_size)
         else:
-            last_token_embedding = x[[-1], :]
+            last_token_embedding = x[-1]
             # during inference we only care about the last token
             # vmap is not needed here, because it's only single token
-            logits = self.lm_head(last_token_embedding.T)
+            logits = self.lm_head(last_token_embedding)
+            logits = jnp.expand_dims(logits, axis=0)
         return logits
