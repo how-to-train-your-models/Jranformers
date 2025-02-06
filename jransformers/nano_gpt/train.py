@@ -106,8 +106,8 @@ def eval(
     val_data: Float[Array, "batch seq_len"],
 ):
     x, y = val_data
-    logits = jax.vmap(model, in_axes=(None, 0, None))(key, x, True)  # (batch_size,)
-    return get_loss(logits, y)
+    logits = jax.vmap(model, in_axes=(None, 0))(key, x)  # (batch_size,)
+    return jnp.mean(get_loss(logits, y))
 
 
 def train(train_config: config.TrainConfig, model_config: config.GPTConfig):

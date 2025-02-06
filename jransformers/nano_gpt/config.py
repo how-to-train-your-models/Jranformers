@@ -18,11 +18,11 @@ class GPTConfig:
 @dataclass
 class TrainConfig:
     """Training configuration"""
-    num_steps: int = 1000
+    num_steps: int = 10000
     batch_size: int = 4
     n_vocab: int = 50304
     out_dir = 'out'
-    eval_interval = 2000
+    eval_interval = 100
     log_interval = 1
     eval_iters = 200
     eval_only = False # if True, script exits right after the first eval
