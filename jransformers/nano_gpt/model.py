@@ -81,9 +81,9 @@ class CasualSelfAttention(eqx.Module):
 
     def __call__(
         self, x: Float[Array, "n_tokens n_embed"]
-    ) -> Float[Array, "n_tokens n_embed"]:        
-        n_tokens = x.shape[0]            
-        mask = jnp.tril(jnp.ones((n_tokens, n_tokens)))        
+    ) -> Float[Array, "n_tokens n_embed"]:
+        n_tokens = x.shape[0]
+        mask = jnp.tril(jnp.ones((n_tokens, n_tokens)))
         return self.mha(x, mask=mask)
 
 
@@ -105,7 +105,7 @@ class Block(eqx.Module):
         self, x: Float[Array, "n_tokens n_embed"]
     ) -> Float[Array, "n_tokens n_embed"]:
         x = jax.vmap(self.ln_1)(x)
-        output_embeddings, attn = self.attn(x)        
+        output_embeddings, attn = self.attn(x)
         x = x + output_embeddings
         x = jax.vmap(self.ln_2)(x)
         x = jax.vmap(self.mlp)(x)
@@ -180,10 +180,10 @@ class GPT(eqx.Module):
         key: PRNGKeyArray,
         tokens: Integer[Array, "n_tokens"],
         inference: bool = False,
-    ) -> Float[Array, "n_tokens vocab_size"]:        
-        x = self.transformer(key, tokens, inference=inference)        
+    ) -> Float[Array, "n_tokens vocab_size"]:
+        x = self.transformer(key, tokens, inference=inference)
         print(f"{inference=} {tokens=}")
-        if not inference:            
+        if not inference:
             logits = jax.vmap(self.lm_head)(x)  # (n_tokens, vocab_size)
         else:
             last_token_embedding = x[[-1], :]

@@ -101,17 +101,18 @@ def step(
 
 
 def eval(
+    key: PRNGKeyArray,
     model: model.GPT,
     val_data: Float[Array, "batch seq_len"],
 ):
     x, y = val_data
-    logits = jax.vmap(model, in_axes=(0, 0, None))(x, y, True)  # (batch_size,)
+    logits = jax.vmap(model, in_axes=(0, 0, None))(key, x, True)  # (batch_size,)
     return get_loss(logits, y)
 
 
 def train(train_config: config.TrainConfig, model_config: config.GPTConfig):
     key = jax.random.PRNGKey(seed)
-    train_key, data_key, model_key = jax.random.split(key, 3)
+    train_key, eval_key, data_key, model_key = jax.random.split(key, 4)
 
     # Initialize the model
     gpt = model.GPT(model_key, model_config)
@@ -142,9 +143,9 @@ def train(train_config: config.TrainConfig, model_config: config.GPTConfig):
         if i % train_config.log_interval == 0:
             print(f"Step {i}, Loss: {loss}")
 
-        if i % train_config.eval_interval == -1:
+        if i % train_config.eval_interval == 0:
             val_batch = next(val_dataloader)
-            eval_loss = eval(gpt, val_batch)
+            eval_loss = eval(eval_key, gpt, val_batch)
             print(f"Eval Loss: {eval_loss}")
 
 
