@@ -105,7 +105,7 @@ def eval(
     val_data: Float[Array, "batch seq_len"],
 ):
     x, y = val_data
-    logits = jax.vmap(model, in_axes=(0, 0, 0))(x, y)  # (batch_size,)
+    logits = jax.vmap(model, in_axes=(0, 0, None))(x, y, True)  # (batch_size,)
     return get_loss(logits, y)
 
 
@@ -142,7 +142,7 @@ def train(train_config: config.TrainConfig, model_config: config.GPTConfig):
         if i % train_config.log_interval == 0:
             print(f"Step {i}, Loss: {loss}")
 
-        if i % train_config.eval_interval == 0:
+        if i % train_config.eval_interval == -1:
             val_batch = next(val_dataloader)
             eval_loss = eval(gpt, val_batch)
             print(f"Eval Loss: {eval_loss}")

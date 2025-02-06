@@ -1,7 +1,8 @@
-datasets
-equinox
 jax
 jaxlib
+datasets
+equinox
 jaxtyping
 optax
 simple-parsing
+einops

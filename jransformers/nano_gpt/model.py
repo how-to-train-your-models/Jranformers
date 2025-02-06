@@ -189,5 +189,5 @@ class GPT(eqx.Module):
             last_token_embedding = x[[-1], :]
             # during inference we only care about the last token
             # vmap is not needed here, because it's only single token
-            logits = self.lm_head(last_token_embedding)
+            logits = self.lm_head(last_token_embedding.T)
         return logits
