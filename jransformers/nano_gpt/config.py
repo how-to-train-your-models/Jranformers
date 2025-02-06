@@ -9,7 +9,7 @@ class GPTConfig:
     )
     n_layers: int = 12
     n_head: int = 12
-    n_embed: int = 768
+    n_embed: int = 12
     dropout: float = 0.0
     bias: bool = (
         True  # True: bias in Linears and LayerNorms, like GPT-2. False: a bit better and faster
@@ -19,7 +19,7 @@ class GPTConfig:
 class TrainConfig:
     """Training configuration"""
     num_steps: int = 1000
-    batch_size: int = 4    
+    batch_size: int = 4
     n_vocab: int = 50304
     out_dir = 'out'
     eval_interval = 2000

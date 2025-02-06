@@ -1,5 +1,6 @@
 import jax
 import jax.numpy as jnp
+import einops
 import equinox as eqx
 import jax
 import jax.numpy as jnp
@@ -63,7 +64,10 @@ def get_optimizers(
 
 
 def get_loss(logits: Float[Array, "batch seq_len"], y: Float[Array, "batch seq_len"]):
-    return jnp.mean(jax.nn.log_softmax(logits) * y)
+    logits = einops.rearrange(logits, "batch seq_len logits -> (batch seq_len) logits")
+    y = einops.rearrange(y, "batch seq_len -> (batch seq_len)")
+    return optax.softmax_cross_entropy_with_integer_labels(logits, y)
+    # return jnp.mean(jax.nn.log_softmax(logits) * y)
 
 
 @eqx.filter_value_and_grad
@@ -74,13 +78,13 @@ def compute_grads(
     y: Float[Array, "batch seq_len"],
 ):
     batch_size = x.shape[0]
-    sub_keys = jax.random.split(key, batch_size)
-    logits = jax.vmap(model, in_axes=(0, 0, 0))(sub_keys, x, y)  # (batch_size,)
+    sub_keys = jax.random.split(key, batch_size)    
+    logits = jax.vmap(model, in_axes=(0, 0))(sub_keys, x)  # (batch_size,)
     loss = get_loss(logits, y)
     return jnp.mean(loss)
 
 
-# @eqx.filter_jit
+@eqx.filter_jit
 def step(
     key: PRNGKeyArray,
     model: model.GPT,
@@ -90,7 +94,8 @@ def step(
 ):
     x, y = batch_data
     loss, grads = compute_grads(model, key, x, y)
-    updates, new_state = optimizer.update(grads, state)
+    model_params = eqx.filter(model, eqx.is_inexact_array)
+    updates, new_state = optimizer.update(grads, state, model_params)
     model = eqx.apply_updates(model, updates)
     return model, new_state, loss
 

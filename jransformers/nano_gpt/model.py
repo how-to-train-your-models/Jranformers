@@ -81,8 +81,8 @@ class CasualSelfAttention(eqx.Module):
 
     def __call__(
         self, x: Float[Array, "n_tokens n_embed"]
-    ) -> Float[Array, "n_tokens n_embed"]:
-        n_tokens = x.shape[0]
+    ) -> Float[Array, "n_tokens n_embed"]:        
+        n_tokens = x.shape[0]            
         mask = jnp.tril(jnp.ones((n_tokens, n_tokens)))        
         return self.mha(x, mask=mask)
 
@@ -182,6 +182,7 @@ class GPT(eqx.Module):
         inference: bool = False,
     ) -> Float[Array, "n_tokens vocab_size"]:        
         x = self.transformer(key, tokens, inference=inference)        
+        print(f"{inference=} {tokens=}")
         if not inference:            
             logits = jax.vmap(self.lm_head)(x)  # (n_tokens, vocab_size)
         else:
