@@ -106,7 +106,7 @@ def eval(
     val_data: Float[Array, "batch seq_len"],
 ):
     x, y = val_data
-    logits = jax.vmap(model, in_axes=(0, 0, None))(key, x, True)  # (batch_size,)
+    logits = jax.vmap(model, in_axes=(None, 0, None))(key, x, True)  # (batch_size,)
     return get_loss(logits, y)
 
 
