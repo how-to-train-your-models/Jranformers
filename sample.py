@@ -1,17 +1,13 @@
-"""
-Sample from a trained JAX-based GPT model.
-"""
+import dataclasses
+import equinox as eqx
 import os
 import jax
 import jax.numpy as jnp
-import equinox as eqx
-from simple_parsing import ArgumentParser
-from dataclasses import dataclass, fields
+import typer
+import pickle # Added import, ensure it's here
 
-# Project imports
-from jransformers.nano_gpt import model as nano_gpt_model
-from jransformers.nano_gpt import config as nano_gpt_config
-from jransformers.nano_gpt import data as nano_gpt_data
+from typing_extensions import Annotated
+from jransformers.nano_gpt import model, config, data
 
 
 def get_latest_checkpoint(out_dir: str) -> str:
@@ -26,115 +22,112 @@ def get_latest_checkpoint(out_dir: str) -> str:
     return os.path.join(out_dir, ckpts[0])
 
 
-def get_char_tokenizer():
-    """Returns encoding and decoding functions based on the dataset's vocabulary."""
-    vocab_info = nano_gpt_data.get_vocabulary_info()
-    stoi = vocab_info["stoi"]
-    itos = vocab_info["itos"]
+def read_char_tokenizer(out_dir: str):
+    """Returns encoding and decoding functions based on the dataset's vocabulary.
+    Loads from meta.pkl in out_dir.
+    """
+    meta_path = os.path.join(out_dir, "meta.pkl") 
     
+    # Ensure pickle is imported at the top of the file
+    with open(meta_path, 'rb') as f:
+        meta = pickle.load(f)
+    stoi = meta["stoi"]
+    itos = meta["itos"]
+    vocab_size = meta["vocab_size"]
+    
+    # Debug information
+    print(f"Loaded vocabulary of size {vocab_size}")
+    print(f"Sample of stoi mapping: {dict(list(stoi.items())[:5])}")
+    print(f"Sample of itos mapping: {dict(list(itos.items())[:5])}")
+    # Verify itos maps integers to characters
+    if not all(isinstance(k, int) for k in itos.keys()):
+        print("WARNING: itos dictionary has non-integer keys!")
+            
     def encode_fn(s: str) -> jnp.ndarray:
         return jnp.array([stoi[c] for c in s if c in stoi], dtype=jnp.int32)
 
     def decode_fn(arr: jnp.ndarray) -> str:
         return "".join([itos[int(t)] for t in arr if int(t) in itos])
     
-    return encode_fn, decode_fn
+    return encode_fn, decode_fn, vocab_size
 
-@dataclass
-class SampleScriptConfig:
-    """Configuration for the sampling script."""
-    out_dir: str = "out"  # Directory to load checkpoint from. Assumed to be set by user if not 'out'.
-    start: str = "\n"  # Prompt string, or "FILE:prompt.txt"
-    num_samples: int = 3 # Number of samples to generate
-    max_new_tokens: int = 100 # Number of tokens generated in each sample
-    temperature: float = 0.8 # Sampling temperature (1.0 = no change)
-    top_k: int = 200 # Retain only the top_k most likely tokens, 0 for no top-k filtering
-    seed: int = 1337 # Random seed
+app = typer.Typer()
 
-def main():
-    parser = ArgumentParser()
-    parser.add_arguments(nano_gpt_config.GPTConfig, dest="gpt_config")
-    # TrainConfig is not strictly needed if out_dir is managed by SampleScriptConfig
-    # parser.add_arguments(nano_gpt_config.TrainConfig, dest="train_config") 
-    parser.add_arguments(SampleScriptConfig, dest="sample_config")
+@app.command()
+def main(
+    # Arguments from SampleScriptConfig
+    out_dir: Annotated[str, typer.Option(help="Directory to load checkpoint from.")] = "out",
+    prompt: Annotated[str, typer.Option(help="Prompt string")] = "\\\\n",
+    num_samples: Annotated[int, typer.Option(help="Number of samples to generate")] = 3,
+    max_new_tokens: Annotated[int, typer.Option(help="Number of tokens generated in each sample")] = 100,
+    temperature: Annotated[float, typer.Option(help="Sampling temperature (1.0 = no change)")] = 0.8,
+    top_k: Annotated[int, typer.Option(help="Retain only the top_k most likely tokens, 0 for no top-k filtering")] = 0,
+    seed: Annotated[int, typer.Option(help="Random seed")] = 42,
+
+    # Arguments from config.GPTConfig
+    block_size: Annotated[int, typer.Option(help="Context block size for the model")] = config.GPTConfig.block_size,
+    vocab_size: Annotated[int, typer.Option(help="Vocabulary size (will be overridden by meta.pkl)")] = config.GPTConfig.vocab_size,
+    n_layers: Annotated[int, typer.Option(help="Number of transformer layers")] = config.GPTConfig.n_layers,
+    n_head: Annotated[int, typer.Option(help="Number of attention heads")] = config.GPTConfig.n_head,
+    n_embed: Annotated[int, typer.Option(help="Embedding dimension")] = config.GPTConfig.n_embed,
+    dropout: Annotated[float, typer.Option(help="Dropout rate")] = config.GPTConfig.dropout,
+    bias: Annotated[bool, typer.Option(help="Whether to use bias in Linear and LayerNorm layers")] = config.GPTConfig.bias,
+):
+    """
+    Sample from a trained JAX-based GPT model.
+    """
+
+    encode_fn, decode_fn, vocab_size= read_char_tokenizer(out_dir)
+
     
-    args = parser.parse_args()
-
-    gpt_config: nano_gpt_config.GPTConfig = args.gpt_config
-    sample_config: SampleScriptConfig = args.sample_config
+    # Create config objects from Typer arguments
+    gpt_config_obj = config.GPTConfig(
+        block_size=block_size,
+        vocab_size=vocab_size,
+        n_layers=n_layers,
+        n_head=n_head,
+        n_embed=n_embed,
+        dropout=dropout,
+        bias=bias
+    )
+    # sample_config is now directly the arguments: out_dir, start, num_samples etc.
     
-    # Setup JAX key
-    key = jax.random.PRNGKey(sample_config.seed)
+    key = jax.random.PRNGKey(seed)
     model_init_key, generation_key = jax.random.split(key)
+    empty_model = model.GPT(model_init_key, gpt_config_obj)
     
-    # Load tokenizer and actual vocabulary size
-    encode_fn, decode_fn = get_char_tokenizer()
-    actual_vocab_size = nano_gpt_data.get_vocab_size()
-
-    # Ensure GPTConfig uses the actual vocab_size from the data
-    if gpt_config.vocab_size != actual_vocab_size:
-        print(f"Warning: GPTConfig.vocab_size ({gpt_config.vocab_size}) differs from actual data vocab_size ({actual_vocab_size}).")
-        print(f"Overriding GPTConfig.vocab_size to {actual_vocab_size}.")
-        
-        current_gpt_config_fields = {f.name: getattr(gpt_config, f.name) for f in fields(nano_gpt_config.GPTConfig)}
-        current_gpt_config_fields['vocab_size'] = actual_vocab_size
-        gpt_config = nano_gpt_config.GPTConfig(**current_gpt_config_fields)
-
-    # Initialize model structure
-    # This model instance is a template; weights will be loaded from checkpoint.
-    # Ensure this gpt_config is the one with corrected vocab_size.
-    empty_model = nano_gpt_model.GPT(model_init_key, gpt_config)
-    
-    # Load checkpoint
     try:
-        ckpt_path = get_latest_checkpoint(sample_config.out_dir)
-        print(f"Loading checkpoint from {ckpt_path}...")
-        # tree_deserialise_leaves loads the checkpoint into the structure of empty_model
+        ckpt_path = get_latest_checkpoint(out_dir)
         loaded_model = eqx.tree_deserialise_leaves(ckpt_path, empty_model)
     except FileNotFoundError as e:
-        print(f"Error: {e}")
-        print(f"Please ensure --out_dir ('{sample_config.out_dir}') contains a valid .eqx checkpoint or specify the correct directory.")
+        print(f"Error loading checkpoint: {e}")
+        print(f"Please ensure --out_dir ('{out_dir}') contains a valid .eqx checkpoint and meta.pkl, or specify the correct directory.")
         return
         
-    print(f"Model loaded. Generating {sample_config.num_samples} samples...")
-
-    # Prepare prompt
-    prompt_text = sample_config.start
-    if prompt_text.startswith('FILE:'):
-        file_path = prompt_text[5:]
-        try:
-            with open(file_path, 'r', encoding='utf-8') as f:
-                prompt_text = f.read()
-            print(f"Loaded prompt from {file_path}")
-        except FileNotFoundError:
-            print(f"Error: Prompt file {file_path} not found. Using the literal string '{sample_config.start}' as prompt.")
-            # Fallback to using the string itself if file not found
-            prompt_text = sample_config.start 
+    print(f"Model loaded. Generating {num_samples} samples...")
     
-    start_ids = encode_fn(prompt_text)
-    if start_ids.shape[0] == 0 and len(prompt_text) > 0:
-        print(f"Warning: Prompt '{prompt_text}' encoded to an empty sequence. Check if characters are in vocabulary.")
-    
+    start_ids = encode_fn(prompt)
     # Run generation loop
-    for i in range(sample_config.num_samples):
+    for i in range(num_samples): # Use the 'num_samples' argument
         generation_key, sample_key = jax.random.split(generation_key) # New key for each sample
         
-        print(f"--- Sample {i+1}/{sample_config.num_samples} ---")
+        print(f"--- Sample {i+1}/{num_samples} ---")
         
         # Ensure top_k is None if 0, as per model.decode's expectation for no top-k
-        current_top_k = sample_config.top_k if sample_config.top_k > 0 else None
+        current_top_k = top_k if top_k > 0 else None # Use the 'top_k' argument
 
+        print(start_ids)
         generated_tokens = loaded_model.decode(
             key=sample_key, 
             initial_tokens=start_ids, 
-            max_new_tokens=sample_config.max_new_tokens,
-            temperature=sample_config.temperature,
+            max_new_tokens=max_new_tokens, # Use the 'max_new_tokens' argument
+            temperature=temperature, # Use the 'temperature' argument
             top_k=current_top_k
         )
         
         generated_text = decode_fn(generated_tokens)
-        print(generated_text)
+        print(f"{generated_text=}")
     print('---------------')
 
 if __name__ == "__main__":
-    main()
+    app()
