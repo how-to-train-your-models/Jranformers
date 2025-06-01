@@ -5,11 +5,10 @@ from equinox import nn
 from dataclasses import dataclass
 from jax import numpy as jnp
 from jaxtyping import Integer, Float, Array, PRNGKeyArray
-from typing import List
+from typing import List, Tuple
 
 from .. import attention
 from .config import GPTConfig
-
 
 class SwiGLU(eqx.Module):
     """
@@ -81,7 +80,15 @@ class CasualSelfAttention(eqx.Module):
 
     def __call__(
         self, x: Float[Array, "n_tokens n_embed"]
-    ) -> Float[Array, "n_tokens n_embed"]:
+    ) -> Tuple[Float[Array, "n_tokens n_embed"], Float[Array, "n_tokens, n_tokens"]]:
+        """
+        Args:
+            x: Input embeddings of shape (n_tokens, n_embed)
+        Returns:
+            Tuple containing:
+                - Output embeddings of shape (n_tokens, n_embed)
+                - Attention weights of shape (n_tokens, n_tokens)
+        """
         n_tokens = x.shape[0]
         mask = jnp.tril(jnp.ones((n_tokens, n_tokens)))
         return self.mha(x, mask=mask)
@@ -181,8 +188,7 @@ class GPT(eqx.Module):
         tokens: Integer[Array, "n_tokens"],
         inference: bool = False,
     ) -> Float[Array, "n_tokens vocab_size"]:
-        x = self.transformer(key, tokens, inference=inference)
-        print(f"{inference=} {tokens=}")
+        x = self.transformer(key, tokens, inference=inference)        
         if not inference:
             logits = jax.vmap(self.lm_head)(x)  # (n_tokens, vocab_size)
         else:
@@ -192,3 +198,43 @@ class GPT(eqx.Module):
             logits = self.lm_head(last_token_embedding)
             logits = jnp.expand_dims(logits, axis=0)
         return logits
+
+    def decode(
+        self,
+        key: PRNGKeyArray,
+        initial_tokens: Integer[Array, "n_tokens"],
+        max_new_tokens: int,
+        temperature: float = 1.0,
+        top_k: int = None,
+    ) -> Integer[Array, "n_tokens + max_new_tokens"]:
+        """Generate text tokens given an initial sequence.
+        
+        Args:
+            key: Random key for sampling
+            initial_tokens: Initial sequence of tokens to continue from
+            max_new_tokens: Maximum number of new tokens to generate
+            temperature: Sampling temperature (1.0 = no change, <1.0 = more conservative, >1.0 = more random)
+            top_k: If set, only sample from the top k most likely tokens
+            
+        Returns:
+            Array of generated tokens including the initial sequence
+        """
+        # Start with the initial tokens
+        tokens = initial_tokens
+        
+        for i in range(max_new_tokens):
+            # Get key for this iteration
+            key, subkey = jax.random.split(key)            
+            logits = self(subkey, tokens, inference=True)
+            logits = logits / temperature
+                
+            if top_k is not None:
+                v, _ = jax.lax.top_k(logits, top_k)
+                min_value = v[0, -1]
+                logits = jnp.where(logits < min_value, -jnp.inf, logits)
+                    
+            probs = jax.nn.softmax(logits, axis=-1)            
+            next_token = jax.random.categorical(subkey, probs[0])            
+            tokens = jnp.append(tokens, next_token)
+            
+        return tokens

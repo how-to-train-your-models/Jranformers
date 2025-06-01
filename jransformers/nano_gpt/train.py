@@ -5,6 +5,8 @@ import equinox as eqx
 import jax
 import jax.numpy as jnp
 import optax
+import os
+import pickle
 
 from jaxtyping import Float, Array, PRNGKeyArray
 from simple_parsing import ArgumentParser
@@ -90,7 +92,7 @@ def step(
     model: model.GPT,
     optimizer: optax.GradientTransformation,
     state: optax.OptState,
-    batch_data: Float[Array, "batch seq_len"],
+    batch_data: Tuple[Float[Array, "batch seq_len"], Float[Array, "batch seq_len"]],
 ):
     x, y = batch_data
     loss, grads = compute_grads(model, key, x, y)
@@ -103,7 +105,7 @@ def step(
 def eval(
     key: PRNGKeyArray,
     model: model.GPT,
-    val_data: Float[Array, "batch seq_len"],
+    val_data: Tuple[Float[Array, "batch seq_len"], Float[Array, "batch seq_len"]],
 ):
     x, y = val_data
     logits = jax.vmap(model, in_axes=(None, 0))(key, x)  # (batch_size,)
@@ -147,6 +149,19 @@ def train(train_config: config.TrainConfig, model_config: config.GPTConfig):
             val_batch = next(val_dataloader)
             eval_loss = eval(eval_key, gpt, val_batch)
             print(f"Eval Loss: {eval_loss}")
+            if train_config.always_save_checkpoint:
+                if not os.path.exists(train_config.out_dir):
+                    os.makedirs(train_config.out_dir, exist_ok=True)
+                ckpt_path = os.path.join(train_config.out_dir, f"ckpt_step_{i}.eqx")
+                eqx.tree_serialise_leaves(ckpt_path, gpt)
+                print(f"Saved checkpoint to {ckpt_path}")
+                
+                # Save meta.pkl alongside the checkpoint
+                meta_path = os.path.join(train_config.out_dir, "meta.pkl")
+                vocab_info = data.get_vocabulary_info() # Get current vocab info
+                with open(meta_path, 'wb') as f:
+                    pickle.dump(vocab_info, f)
+                print(f"Saved vocabulary metadata to {meta_path}")
 
 
 if __name__ == "__main__":
