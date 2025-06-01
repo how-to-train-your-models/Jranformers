@@ -52,16 +52,6 @@ def get_optimizers(
         },
         param_labels=lambda _: param_labels,
     )
-
-    # Count parameters for logging
-    # num_decay_params = sum(v.size for v in decay_weights.values())
-    # num_nodecay_params = sum(v.size for v in nodecay_weights.values())
-    # print(
-    #     f"num decayed parameter tensors: {len(decay_weights)}, with {num_decay_params:,} parameters"
-    # )
-    # print(
-    #     f"num non-decayed parameter tensors: {len(nodecay_weights)}, with {num_nodecay_params:,} parameters"
-    # )
     return optimizer
 
 
@@ -116,7 +106,9 @@ def train(train_config: config.TrainConfig, model_config: config.GPTConfig):
     key = jax.random.PRNGKey(seed)
     train_key, eval_key, data_key, model_key = jax.random.split(key, 4)
 
-    # Initialize the model
+    vocab_info = data.get_vocabulary_info()
+    model_config.vocab_size = vocab_info["vocab_size"]  # TODO provide a way to override this
+    
     gpt = model.GPT(model_key, model_config)
     model_params = eqx.filter(gpt, eqx.is_inexact_array)
     # Initialize the optimizer
@@ -158,7 +150,6 @@ def train(train_config: config.TrainConfig, model_config: config.GPTConfig):
                 
                 # Save meta.pkl alongside the checkpoint
                 meta_path = os.path.join(train_config.out_dir, "meta.pkl")
-                vocab_info = data.get_vocabulary_info() # Get current vocab info
                 with open(meta_path, 'wb') as f:
                     pickle.dump(vocab_info, f)
                 print(f"Saved vocabulary metadata to {meta_path}")

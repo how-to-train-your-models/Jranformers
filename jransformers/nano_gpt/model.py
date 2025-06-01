@@ -80,7 +80,7 @@ class CasualSelfAttention(eqx.Module):
 
     def __call__(
         self, x: Float[Array, "n_tokens n_embed"]
-    ) -> Tuple[Float[Array, "n_tokens n_embed"], Float[Array, "n_tokens, n_tokens"]]:
+    ) -> Tuple[Float[Array, "n_tokens n_embed"], Float[Array, "n_tokens n_tokens"]]:
         """
         Args:
             x: Input embeddings of shape (n_tokens, n_embed)
@@ -234,7 +234,8 @@ class GPT(eqx.Module):
                 logits = jnp.where(logits < min_value, -jnp.inf, logits)
                     
             probs = jax.nn.softmax(logits, axis=-1)            
-            next_token = jax.random.categorical(subkey, probs[0])            
+            next_token = jax.random.categorical(subkey, probs[0])
+            print(f"Generated token {i+1}/{max_new_tokens}: {next_token}")
             tokens = jnp.append(tokens, next_token)
             
         return tokens

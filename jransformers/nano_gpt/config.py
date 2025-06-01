@@ -4,23 +4,18 @@ from dataclasses import dataclass
 class GPTConfig:
     """Model configuration"""
     block_size: int = 1024
-    vocab_size: int = (
-        50304  # GPT-2 vocab_size of 50257, padded up to nearest multiple of 64 for efficiency
-    )
     n_layers: int = 12
+    vocab_size: int = -1 # to be set later, e.g. from meta.pkl
     n_head: int = 12
     n_embed: int = 12
     dropout: float = 0.0
-    bias: bool = (
-        True  # True: bias in Linears and LayerNorms, like GPT-2. False: a bit better and faster
-    )
+    bias: bool = True  # True: bias in Linears and LayerNorms, like GPT-2. False: a bit better and faster
 
 @dataclass
 class TrainConfig:
     """Training configuration"""
     num_steps: int = 10000
     batch_size: int = 4
-    n_vocab: int = 50304
     out_dir = 'out'
     eval_interval = 100
     log_interval = 1
