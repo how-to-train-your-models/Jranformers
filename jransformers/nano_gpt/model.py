@@ -62,11 +62,11 @@ class MLP(eqx.Module):
 
         self.dropout = nn.Dropout(model_config.dropout)
 
-    def __call__(self, x):
+    def __call__(self, key: PRNGKeyArray, x: Float[Array, "n_tokens n_embed"], inference: bool = False) -> Float[Array, "n_tokens n_embed"]:
         x = self.c_fc(x)
         x = self.swiglu(x)
-        x = self.c_proj(x)
-        x = self.dropout(x)
+        x = self.c_proj(x)        
+        x = self.dropout(x, key=key, inference=inference)
         return x
 
 
@@ -109,13 +109,13 @@ class Block(eqx.Module):
         self.mlp = MLP(key=key_mlp, model_config=model_config)
 
     def __call__(
-        self, x: Float[Array, "n_tokens n_embed"]
+        self, key: PRNGKeyArray, x: Float[Array, "n_tokens n_embed"]
     ) -> Float[Array, "n_tokens n_embed"]:
         x = jax.vmap(self.ln_1)(x)
         output_embeddings, attn = self.attn(x)
         x = x + output_embeddings
         x = jax.vmap(self.ln_2)(x)
-        x = jax.vmap(self.mlp)(x)
+        x = x + jax.vmap(self.mlp, in_axes=(None, 0))(key, x)
         return x
 
 
@@ -155,14 +155,14 @@ class Transformer(eqx.Module):
         tokens: Integer[Array, "n_tokens"],
         inference: bool = False,
     ) -> Float[Array, "n_tokens n_embed"]:
-        pos = jnp.arange(0, len(tokens), dtype=jnp.int64)
+        pos = jnp.arange(0, len(tokens), dtype=jnp.int32)
         t_embed = jax.vmap(self.wte)(tokens)  # token embeddings
         p_embed = jax.vmap(self.wpe)(pos)  # positional embedidngs
         x = self.drop(
             t_embed + p_embed, inference=inference, key=key
         )  # TODO: confirm why is key optional in params
         for block in self.h:
-            x = block(x)
+            x = block(key, x)
         x = jax.vmap(self.ln_f)(x)
         return x
 
