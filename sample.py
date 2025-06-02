@@ -56,7 +56,7 @@ app = typer.Typer()
 @app.command()
 def main(
     # Arguments from SampleScriptConfig
-    out_dir: Annotated[str, typer.Option(help="Directory to load checkpoint from.")] = "out",
+    out_dir: Annotated[str, typer.Option(help="Directory to load checkpoint from.")] = config.TrainConfig.out_dir,
     prompt: Annotated[str, typer.Option(help="Prompt string")] = "\\\\n",
     num_samples: Annotated[int, typer.Option(help="Number of samples to generate")] = 3,
     max_new_tokens: Annotated[int, typer.Option(help="Number of tokens generated in each sample")] = 100,
