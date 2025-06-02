@@ -15,7 +15,6 @@ from . import model, data, config
 
 seed = 42
 
-
 def get_optimizers(
     model: model.GPT, weight_decay: float, learning_rate: float, betas: Tuple
 ):
@@ -124,10 +123,10 @@ def train(train_config: config.TrainConfig, model_config: config.GPTConfig):
 
     # Get the infinite dataloader
     train_dataloader = data.get_infinite_dataloader(
-        data_key, "train", train_config.batch_size, train_config.block_size
+        data_key, "train", train_config.batch_size, model_config.block_size
     )
     val_dataloader = data.get_infinite_dataloader(
-        data_key, "validation", train_config.batch_size, train_config.block_size
+        data_key, "validation", train_config.batch_size, model_config.block_size
     )
 
     for i in range(train_config.num_steps):
