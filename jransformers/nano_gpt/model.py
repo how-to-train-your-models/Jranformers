@@ -111,11 +111,12 @@ class Block(eqx.Module):
     def __call__(
         self, key: PRNGKeyArray, x: Float[Array, "n_tokens n_embed"]
     ) -> Float[Array, "n_tokens n_embed"]:
+        mlp_keys = jax.random.split(key, x.shape[0])  # Create a key for each token
         x = jax.vmap(self.ln_1)(x)
         output_embeddings, attn = self.attn(x)
         x = x + output_embeddings
         x = jax.vmap(self.ln_2)(x)
-        x = x + jax.vmap(self.mlp, in_axes=(None, 0))(key, x)
+        x = x + jax.vmap(self.mlp)(mlp_keys, x)
         return x
 
 
