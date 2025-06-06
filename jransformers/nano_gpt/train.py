@@ -2,8 +2,6 @@ import jax
 import jax.numpy as jnp
 import einops
 import equinox as eqx
-import jax
-import jax.numpy as jnp
 import optax
 import os
 import pickle
@@ -11,12 +9,11 @@ import pickle
 from jaxtyping import Float, Array, PRNGKeyArray
 from simple_parsing import ArgumentParser
 from typing import Tuple
+# Respect the user's CUDA device configuration. Avoid forcing a specific GPU
+# index which could inadvertently disable GPU usage.
 from . import model, data, config
 
 seed = 42
-
-import os
-os.environ["CUDA_VISIBLE_DEVICES"] = "1" # second GPU
 
 def get_optimizers(
     model: model.GPT, weight_decay: float, learning_rate: float, betas: Tuple
