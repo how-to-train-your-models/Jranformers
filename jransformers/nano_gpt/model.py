@@ -234,8 +234,10 @@ class GPT(eqx.Module):
                 min_value = v[0, -1]
                 logits = jnp.where(logits < min_value, -jnp.inf, logits)
                     
-            probs = jax.nn.softmax(logits, axis=-1)            
-            next_token = jax.random.categorical(subkey, probs[0])
+            # jax.random.categorical expects log-probabilities. The logits are
+            # already unnormalized log-probabilities, so we pass them directly
+            # after applying temperature scaling and optional top-k filtering.
+            next_token = jax.random.categorical(subkey, logits[0])
             print(f"Generated token {i+1}/{max_new_tokens}: {next_token}")
             tokens = jnp.append(tokens, next_token)
             
