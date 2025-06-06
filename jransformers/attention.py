@@ -19,6 +19,8 @@ def scaled_dot_product(
     attn_logits = logits / math.sqrt(d_k)
     if mask is not None:
         logits = jnp.where(mask == 0, jnp.finfo(logits.dtype).min, attn_logits)
+    else:
+        logits = attn_logits
     attention = jax.nn.softmax(logits, axis=-1)
     values = jnp.matmul(attention, v)
     return values, attention
