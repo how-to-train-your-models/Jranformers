@@ -49,8 +49,9 @@ def get_infinite_dataloader(key: PRNGKeyArray, split_type: str, batch_size: int,
     def encode_fn(s):
         return [stoi[c] for c in s if c in stoi] 
     
-    data_encoded = encode_fn(full_text_for_split)
-    n = len(data_encoded)
+    # Convert encoded data to a JAX array once so we can use vectorized slicing
+    data_encoded = jnp.array(encode_fn(full_text_for_split), dtype=jnp.int32)
+    n = data_encoded.shape[0]
 
     if n < seq_len + 1:
         # Attempt to provide a more robust check for empty or too short data_encoded
@@ -64,13 +65,15 @@ def get_infinite_dataloader(key: PRNGKeyArray, split_type: str, batch_size: int,
             )
             raise ValueError(error_msg)
     
+    def get_block(start_idx):
+        """Vectorized slice helper using ``dynamic_slice`` for JIT efficiency."""
+        return jax.lax.dynamic_slice(data_encoded, (start_idx,), (seq_len + 1,))
+
     while True:
         # create a new key every iteration to avoid returning the same batch
         key, subkey = jax.random.split(key)
-        # sample random indices (batch_size, )
-        ix = jax.random.randint(subkey, (batch_size,), 0, n - seq_len)
-        # for every index, extract a sequence of length seq_len
-        x = jnp.stack([jnp.array(data_encoded[i:i+seq_len]) for i in ix])
-        # for every index, extract the sequence that follows the previous one
-        y = jnp.stack([jnp.array(data_encoded[i+1:i+seq_len+1]) for i in ix])
+        ix = jax.random.randint(subkey, (batch_size,), 0, n - seq_len - 1)
+
+        seq = jax.vmap(get_block)(ix)
+        x, y = seq[:, :seq_len], seq[:, 1:]
         yield x, y
