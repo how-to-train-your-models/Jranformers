@@ -1,8 +1,9 @@
 jax
 jaxlib
 datasets
+einops
 equinox
 jaxtyping
 optax
 simple-parsing
-einops
+typer
