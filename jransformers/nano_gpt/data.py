@@ -70,7 +70,7 @@ def get_infinite_dataloader(key: PRNGKeyArray, split_type: str, batch_size: int,
         # sample random indices (batch_size, )
         ix = jax.random.randint(subkey, (batch_size,), 0, n - seq_len)
         # for every index, extract a sequence of length seq_len
-        x = jnp.stack([jnp.array(data[i:i+seq_len]) for i in ix])
+        x = jnp.stack([jnp.array(data_encoded[i:i+seq_len]) for i in ix])
         # for every index, extract the sequence that follows the previous one
-        y = jnp.stack([jnp.array(data[i+1:i+seq_len+1]) for i in ix])
+        y = jnp.stack([jnp.array(data_encoded[i+1:i+seq_len+1]) for i in ix])
         yield x, y

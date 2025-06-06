@@ -127,10 +127,10 @@ def train(train_config: config.TrainConfig, model_config: config.GPTConfig):
     # Get the infinite dataloader
     train_data_key, val_data_key = jax.random.split(data_key)
     train_dataloader = data.get_infinite_dataloader(
-        train_data_key, "train", train_config.batch_size, train_config.block_size
+        train_data_key, "train", train_config.batch_size, model_config.block_size
     )
     val_dataloader = data.get_infinite_dataloader(
-        val_data_key, "validation", train_config.batch_size, train_config.block_size
+        val_data_key, "validation", train_config.batch_size, model_config.block_size
     )
 
     for i in range(train_config.num_steps):
