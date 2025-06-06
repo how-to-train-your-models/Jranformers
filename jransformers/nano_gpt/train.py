@@ -125,23 +125,26 @@ def train(train_config: config.TrainConfig, model_config: config.GPTConfig):
     state = optimizer.init(model_params)
 
     # Get the infinite dataloader
+    train_data_key, val_data_key = jax.random.split(data_key)
     train_dataloader = data.get_infinite_dataloader(
-        data_key, "train", train_config.batch_size, model_config.block_size
+        train_data_key, "train", train_config.batch_size, train_config.block_size
     )
     val_dataloader = data.get_infinite_dataloader(
-        data_key, "validation", train_config.batch_size, model_config.block_size
+        val_data_key, "validation", train_config.batch_size, train_config.block_size
     )
 
     for i in range(train_config.num_steps):
+        train_key, step_key = jax.random.split(train_key)
         train_batch = next(train_dataloader)
-        gpt, state, loss = step(train_key, gpt, optimizer, state, train_batch)
+        gpt, state, loss = step(step_key, gpt, optimizer, state, train_batch)
 
         if i % train_config.log_interval == 0:
             print(f"Step {i}, Loss: {loss}")
 
         if i % train_config.eval_interval == 0:
+            eval_key, sub_eval_key = jax.random.split(eval_key)
             val_batch = next(val_dataloader)
-            eval_loss = eval(eval_key, gpt, val_batch)
+            eval_loss = eval(sub_eval_key, gpt, val_batch)
             print(f"Eval Loss: {eval_loss}")
             if train_config.always_save_checkpoint:
                 if not os.path.exists(train_config.out_dir):

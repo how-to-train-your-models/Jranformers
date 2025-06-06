@@ -189,7 +189,7 @@ class GPT(eqx.Module):
         tokens: Integer[Array, "n_tokens"],
         inference: bool = False,
     ) -> Float[Array, "n_tokens vocab_size"]:
-        x = self.transformer(key, tokens, inference=inference)        
+        x = self.transformer(key, tokens, inference=inference)
         if not inference:
             logits = jax.vmap(self.lm_head)(x)  # (n_tokens, vocab_size)
         else:
