@@ -28,8 +28,10 @@ def get_infinite_dataloader(key: PRNGKeyArray, split_type: str, batch_size: int,
     n = len(data)
     
     while True:
+        # create a new key every iteration to avoid returning the same batch
+        key, subkey = jax.random.split(key)
         # sample random indices (batch_size, )
-        ix = jax.random.randint(key, (batch_size,), 0, n - seq_len)
+        ix = jax.random.randint(subkey, (batch_size,), 0, n - seq_len)
         # for every index, extract a sequence of length seq_len
         x = jnp.stack([jnp.array(data[i:i+seq_len]) for i in ix])
         # for every index, extract the sequence that follows the previous one
