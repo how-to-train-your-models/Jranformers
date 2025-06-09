@@ -6,6 +6,7 @@ from typing import Any, Dict, Generator, Tuple, Callable
 
 dataset_name = 'karpathy/tiny_shakespeare'
 _cached_vocab_info: Dict[str, Any] | None = None
+_cached_encoded_data: Dict[str, list[int] | None] = {'train': None, 'validation': None}
 
 def get_dataset() -> Any:
     return load_dataset(dataset_name, trust_remote_code=True)
@@ -40,19 +41,26 @@ def get_vocab_size() -> int:
 def get_infinite_dataloader(
     key: PRNGKeyArray, split_type: str, batch_size: int, seq_len: int
 ) -> Generator[Tuple[jnp.ndarray, jnp.ndarray], None, None]:
-    dataset_obj = get_dataset()
-    assert split_type in dataset_obj.keys(), f"Split {split_type} not found in dataset"
+    global _cached_encoded_data
     
-    text_list_for_split = dataset_obj[split_type]['text']
-    full_text_for_split = "".join(text_list_for_split)
+    if _cached_encoded_data[split_type] is not None:
+        data_encoded = _cached_encoded_data[split_type]
+    else:
+        dataset_obj = get_dataset()
+        assert split_type in dataset_obj.keys(), f"Split {split_type} not found in dataset"
 
-    vocab_info = get_vocabulary_info()
-    stoi = vocab_info["stoi"]
-    
-    def encode_fn(s: str) -> list[int]:
-        return [stoi[c] for c in s if c in stoi]
-    
-    data_encoded = encode_fn(full_text_for_split)
+        text_list_for_split = dataset_obj[split_type]['text']
+        full_text_for_split = "".join(text_list_for_split)
+
+        vocab_info = get_vocabulary_info()
+        stoi = vocab_info["stoi"]
+
+        def encode_fn(s: str) -> list[int]:
+            return [stoi[c] for c in s if c in stoi]
+
+        data_encoded = encode_fn(full_text_for_split)
+        _cached_encoded_data[split_type] = data_encoded
+
     n = len(data_encoded)
 
     if n < seq_len + 1:

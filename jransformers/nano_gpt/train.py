@@ -7,6 +7,9 @@ import jax.numpy as jnp
 import optax
 import os
 import pickle
+# import cProfile
+# import pstats
+# from pstats import SortKey
 
 from jaxtyping import Float, Array, PRNGKeyArray
 from simple_parsing import ArgumentParser
@@ -102,7 +105,11 @@ def eval(
     val_data: Tuple[Float[Array, "batch seq_len"], Float[Array, "batch seq_len"]],
 ) -> jnp.ndarray:
     x, y = val_data
-    logits = jax.vmap(model, in_axes=(None, 0))(key, x)  # (batch_size,)
+    # Create a partial function with inference=True
+    infer_model = eqx.Partial(model, inference=True)
+    # Apply vmap to the partial function. The key is still needed by the signature,
+    # but its usage by dropout should be disabled by inference=True.
+    logits = jax.vmap(infer_model, in_axes=(None, 0))(key, x)
     return jnp.mean(get_loss(logits, y))
 
 
@@ -125,6 +132,18 @@ def train(train_config: config.TrainConfig, model_config: config.GPTConfig) -> N
 
     # Initialize the optimizer state
     state = optimizer.init(model_params)
+
+    # Save vocabulary metadata once at the start of training
+    if not os.path.exists(train_config.out_dir):
+        os.makedirs(train_config.out_dir, exist_ok=True) # Ensure out_dir exists
+    meta_path = os.path.join(train_config.out_dir, "meta.pkl")
+    with open(meta_path, 'wb') as f:
+        pickle.dump(vocab_info, f)
+    print(f"Saved vocabulary metadata to {meta_path} (once at the start of training)")
+
+    # For profiling
+    # pr = cProfile.Profile()
+    # pr.enable()
 
     # Get the infinite dataloader
     train_data_key, val_data_key = jax.random.split(data_key)
@@ -154,12 +173,12 @@ def train(train_config: config.TrainConfig, model_config: config.GPTConfig) -> N
                 ckpt_path = os.path.join(train_config.out_dir, f"ckpt_step_{i}.eqx")
                 eqx.tree_serialise_leaves(ckpt_path, gpt)
                 print(f"Saved checkpoint to {ckpt_path}")
-                
-                # Save meta.pkl alongside the checkpoint
-                meta_path = os.path.join(train_config.out_dir, "meta.pkl")
-                with open(meta_path, 'wb') as f:
-                    pickle.dump(vocab_info, f)
-                print(f"Saved vocabulary metadata to {meta_path}")
+                # meta.pkl is now saved once at the beginning of training
+
+    # For profiling
+    # pr.disable()
+    # ps = pstats.Stats(pr).sort_stats(SortKey.CUMULATIVE)
+    # ps.print_stats(30) # Print top 30 functions by cumulative time
 
 
 if __name__ == "__main__":
