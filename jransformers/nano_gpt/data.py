@@ -1,15 +1,16 @@
-import jax 
+import jax
 from datasets import load_dataset
 from jax import numpy as jnp
 from jaxtyping import Float, Array, PRNGKeyArray
+from typing import Any, Dict, Generator, Tuple, Callable
 
 dataset_name = 'karpathy/tiny_shakespeare'
-_cached_vocab_info = None
+_cached_vocab_info: Dict[str, Any] | None = None
 
-def get_dataset():
+def get_dataset() -> Any:
     return load_dataset(dataset_name, trust_remote_code=True)
 
-def get_vocabulary_info():
+def get_vocabulary_info() -> Dict[str, Any]:
     global _cached_vocab_info
     if _cached_vocab_info is not None:
         return _cached_vocab_info
@@ -27,16 +28,18 @@ def get_vocabulary_info():
     _cached_vocab_info = {"stoi": stoi, "itos": itos, "vocab_size": vocab_size}
     return _cached_vocab_info
 
-def get_encoder():
+def get_encoder() -> Dict[str, int]:
     return get_vocabulary_info()["stoi"]
 
-def get_decoder():
+def get_decoder() -> Dict[int, str]:
     return get_vocabulary_info()["itos"]
 
-def get_vocab_size():
+def get_vocab_size() -> int:
     return get_vocabulary_info()["vocab_size"]
 
-def get_infinite_dataloader(key: PRNGKeyArray, split_type: str, batch_size: int, seq_len: int):
+def get_infinite_dataloader(
+    key: PRNGKeyArray, split_type: str, batch_size: int, seq_len: int
+) -> Generator[Tuple[jnp.ndarray, jnp.ndarray], None, None]:
     dataset_obj = get_dataset()
     assert split_type in dataset_obj.keys(), f"Split {split_type} not found in dataset"
     
@@ -46,8 +49,8 @@ def get_infinite_dataloader(key: PRNGKeyArray, split_type: str, batch_size: int,
     vocab_info = get_vocabulary_info()
     stoi = vocab_info["stoi"]
     
-    def encode_fn(s):
-        return [stoi[c] for c in s if c in stoi] 
+    def encode_fn(s: str) -> list[int]:
+        return [stoi[c] for c in s if c in stoi]
     
     data_encoded = encode_fn(full_text_for_split)
     n = len(data_encoded)

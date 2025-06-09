@@ -7,6 +7,7 @@ import typer
 import pickle # Added import, ensure it's here
 
 from typing_extensions import Annotated
+from typing import Callable, Tuple
 from jransformers.nano_gpt import model, config, data
 
 
@@ -26,7 +27,7 @@ def get_latest_checkpoint(out_dir: str) -> str:
     return os.path.join(out_dir, ckpts[0])
 
 
-def read_char_tokenizer(out_dir: str):
+def read_char_tokenizer(out_dir: str) -> Tuple[Callable[[str], jnp.ndarray], Callable[[jnp.ndarray], str], int]:
     """Returns encoding and decoding functions based on the dataset's vocabulary.
     Loads from meta.pkl in out_dir.
     """
