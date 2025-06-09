@@ -5,6 +5,7 @@ import jax
 import jax.numpy as jnp
 import typer
 import pickle # Added import, ensure it's here
+from jaxtyping import Integer, Array
 
 from typing_extensions import Annotated
 from jransformers.nano_gpt import model, config, data
@@ -47,10 +48,10 @@ def read_char_tokenizer(out_dir: str):
     if not all(isinstance(k, int) for k in itos.keys()):
         print("WARNING: itos dictionary has non-integer keys!")
             
-    def encode_fn(s: str) -> jnp.ndarray:
+    def encode_fn(s: str) -> Integer[Array, "n"]:
         return jnp.array([stoi[c] for c in s if c in stoi], dtype=jnp.int32)
 
-    def decode_fn(arr: jnp.ndarray) -> str:
+    def decode_fn(arr: Integer[Array, "n"]) -> str:
         return "".join([itos[int(t)] for t in arr if int(t) in itos])
     
     return encode_fn, decode_fn, vocab_size
