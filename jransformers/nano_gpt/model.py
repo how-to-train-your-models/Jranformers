@@ -5,7 +5,7 @@ from equinox import nn
 from dataclasses import dataclass
 from jax import numpy as jnp
 from jaxtyping import Integer, Float, Array, PRNGKeyArray
-from typing import List, Tuple
+from typing import List, Tuple, Optional
 
 from .. import attention
 from .config import GPTConfig
@@ -20,14 +20,14 @@ class SwiGLU(eqx.Module):
     b: Float[Array, "out_features"]
     c: Float[Array, "out_features"]
 
-    def __init__(self, key: PRNGKeyArray, in_features: int, out_features: int):
+    def __init__(self, key: PRNGKeyArray, in_features: int, out_features: int) -> None:
         k1, k2, k3, k4 = jax.random.split(key, 4)
         self.W = jax.random.normal(k1, (in_features, out_features))
         self.V = jax.random.normal(k2, (in_features, out_features))
         self.b = jax.random.normal(k3, (out_features,))
         self.c = jax.random.normal(k4, (out_features,))
 
-    def __call__(self, x):
+    def __call__(self, x: Float[Array, "... in_features"]) -> Float[Array, "... out_features"]:
         return jax.nn.swish(jnp.dot(x, self.W) + self.b) * (jnp.dot(x, self.V) + self.c)
 
 
@@ -37,7 +37,7 @@ class MLP(eqx.Module):
     c_proj: nn.Linear
     dropout: nn.Dropout
 
-    def __init__(self, key: PRNGKeyArray, model_config: GPTConfig):
+    def __init__(self, key: PRNGKeyArray, model_config: GPTConfig) -> None:
         key_fc, key_swiglu, key_proj, key_dropout = jax.random.split(key, 4)
 
         self.c_fc = nn.Linear(
@@ -73,7 +73,7 @@ class MLP(eqx.Module):
 class CasualSelfAttention(eqx.Module):
     mha: attention.MultiHeadAttention
 
-    def __init__(self, key: PRNGKeyArray, model_config: GPTConfig):
+    def __init__(self, key: PRNGKeyArray, model_config: GPTConfig) -> None:
         self.mha = attention.MultiHeadAttention(
             key=key, n_embed=model_config.n_embed, n_heads=model_config.n_head
         )
@@ -100,7 +100,7 @@ class Block(eqx.Module):
     ln_2: nn.LayerNorm
     mlp: MLP
 
-    def __init__(self, key: PRNGKeyArray, model_config: GPTConfig):
+    def __init__(self, key: PRNGKeyArray, model_config: GPTConfig) -> None:
         key_attn, key_mlp = jax.random.split(key, 2)
 
         self.ln_1 = nn.LayerNorm(model_config.n_embed, use_bias=model_config.bias)
@@ -127,7 +127,7 @@ class Transformer(eqx.Module):
     h: List[Block]
     ln_f: nn.LayerNorm
 
-    def __init__(self, key: PRNGKeyArray, model_config: GPTConfig):
+    def __init__(self, key: PRNGKeyArray, model_config: GPTConfig) -> None:
         te_key, pe_key, h_key = jax.random.split(key, 3)
 
         # token embeddings
@@ -172,7 +172,7 @@ class GPT(eqx.Module):
     transformer: Transformer
     lm_head: nn.Linear
 
-    def __init__(self, key: PRNGKeyArray, model_config: GPTConfig):
+    def __init__(self, key: PRNGKeyArray, model_config: GPTConfig) -> None:
         key_transformer, key_lm_head = jax.random.split(key, 2)
 
         self.transformer = Transformer(key=key_transformer, model_config=model_config)
