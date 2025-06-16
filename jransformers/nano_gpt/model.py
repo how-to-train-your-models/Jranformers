@@ -225,8 +225,9 @@ class GPT(eqx.Module):
         
         for i in range(max_new_tokens):
             # Get key for this iteration
-            key, subkey = jax.random.split(key)            
-            logits = self(subkey, tokens, inference=True)
+            key, subkey = jax.random.split(key)
+            # during inference, we only get last token logits
+            logits = self(subkey, tokens, inference=True) # (1, vocab_size)
             logits = logits / temperature
                 
             if top_k is not None:
