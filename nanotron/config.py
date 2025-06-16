@@ -1,3 +1,5 @@
+import os
+
 from dataclasses import dataclass
 
 @dataclass
@@ -18,7 +20,7 @@ class TrainConfig:
     num_steps: int = 5000
     batch_size: int = 64
     # Use the original output directory path
-    out_dir = '/mnt/nvme9n1/huggingface/hub/out/'
+    out_dir = os.environ.get('OUT_DIR', './output/')
     eval_interval = 250
     log_interval = 10
     eval_iters = 200
@@ -39,5 +41,3 @@ class TrainConfig:
     warmup_iters = 100
     lr_decay_iters = 5000
     min_lr = 1e-4
-    
-

@@ -15,9 +15,6 @@ from . import model, data, config
 
 seed = 42
 
-import os
-os.environ["CUDA_VISIBLE_DEVICES"] = "1" # second GPU
-
 def get_optimizers(
     model: model.GPT, weight_decay: float, learning_rate: float, betas: Tuple
 ) -> optax.GradientTransformation:

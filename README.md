@@ -7,35 +7,19 @@ Jax re-implementation of various transformer modules.
 
 This project uses UV for package management. To get started:
 
-1. Install UV:
-```bash
-pip install uv
-```
-
-2. Create a virtual environment:
-```bash
-uv venv .venv
-```
-
-3. Activate the environment:
-```bash
-source .venv/bin/activate  # On Unix/macOS
-.venv\Scripts\activate     # On Windows
-```
-
-4. Install dependencies:
-```bash
-uv pip install .
-```
-
-For CUDA support:
-```bash
-uv pip install .[cuda]
-```
-
 ## Usage
 
 Run training:
 ```bash
-uv run train
+uv run nanotron.train
 ```
+Generate samples
+```bash
+uv run nanotron.sample
+```
+
+Alternatively, you can use the `train.sh` and `sample.sh` within the environment.
+
+
+## Config
+

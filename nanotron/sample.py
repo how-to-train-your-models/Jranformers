@@ -12,10 +12,6 @@ from typing import Callable, Tuple
 from . import model, config, data
 
 
-import os
-os.environ["CUDA_VISIBLE_DEVICES"] = "1" # second GPU
-
-
 def get_latest_checkpoint(out_dir: str) -> str:
     """Loads the latest .eqx checkpoint from the given directory."""
     if not os.path.isdir(out_dir):
