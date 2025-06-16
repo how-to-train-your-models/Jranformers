@@ -2,6 +2,8 @@ import os
 
 from dataclasses import dataclass
 
+print(f"{os.environ['OUT_DIR']=}")
+
 @dataclass
 class GPTConfig:
     """Model configuration"""

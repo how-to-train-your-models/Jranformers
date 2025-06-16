@@ -11,9 +11,11 @@ import pickle
 from jaxtyping import Float, Array, PRNGKeyArray
 from simple_parsing import ArgumentParser
 from typing import Tuple, Any
-from . import model, data, config
+from . import model, data, config, utils
 
 seed = 42
+
+print(f"{os.environ['CUDA_VISIBLE_DEVICES']=}")
 
 def get_optimizers(
     model: model.GPT, weight_decay: float, learning_rate: float, betas: Tuple
@@ -146,22 +148,25 @@ def train(train_config: config.TrainConfig, model_config: config.GPTConfig) -> N
             eval_loss = eval(sub_eval_key, gpt, val_batch)
             print(f"Eval Loss: {eval_loss}")
             if train_config.always_save_checkpoint:
-                if not os.path.exists(train_config.out_dir):
-                    os.makedirs(train_config.out_dir, exist_ok=True)
-                ckpt_path = os.path.join(train_config.out_dir, f"ckpt_step_{i}.eqx")
-                eqx.tree_serialise_leaves(ckpt_path, gpt)
-                print(f"Saved checkpoint to {ckpt_path}")
-                
-                # Save meta.pkl alongside the checkpoint
-                meta_path = os.path.join(train_config.out_dir, "meta.pkl")
-                with open(meta_path, 'wb') as f:
-                    pickle.dump(vocab_info, f)
-                print(f"Saved vocabulary metadata to {meta_path}")
+                utils.save_model(
+                    gpt, train_config.out_dir, i, model_config
+                )
 
 
 if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_arguments(config.TrainConfig, dest="train_config")
     parser.add_arguments(config.GPTConfig, dest="model_config")
+    parser.add_argument(
+        "--clean-output-dir",
+        action="store_true",
+        default=True,
+        help="Clean the output directory before training. Enabled by default."
+    )
     args = parser.parse_args()
+
+    if args.clean_output_dir:
+        utils.clean_output_dir(args.train_config.out_dir)
+        print(f"Cleaned output directory: {args.train_config.out_dir}")
+
     train(args.train_config, args.model_config)

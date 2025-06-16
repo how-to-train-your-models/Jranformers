@@ -1,1 +1,1 @@
-python -m nanotron.sample "$@"
+uv run --env-file .env python -m nanotron.sample "$@"

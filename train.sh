@@ -1,1 +1,1 @@
-python -m nanotron.train "$@"
+uv run --env-file .env python -m nanotron.train "$@"

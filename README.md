@@ -11,11 +11,11 @@ This project uses UV for package management. To get started:
 
 Run training:
 ```bash
-uv run nanotron.train
+uv run --env-file .env python -m nanotron.train
 ```
 Generate samples
 ```bash
-uv run nanotron.sample
+uv run --env-file .env python -m nanotron.sample
 ```
 
 Alternatively, you can use the `train.sh` and `sample.sh` within the environment.

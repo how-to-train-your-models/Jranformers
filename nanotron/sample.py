@@ -11,6 +11,8 @@ from typing_extensions import Annotated
 from typing import Callable, Tuple
 from . import model, config, data
 
+print(f"{os.environ['CUDA_VISIBLE_DEVICES']=}")
+
 
 def get_latest_checkpoint(out_dir: str) -> str:
     """Loads the latest .eqx checkpoint from the given directory."""
