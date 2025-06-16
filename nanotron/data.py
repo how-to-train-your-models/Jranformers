@@ -2,10 +2,10 @@ import jax
 from datasets import load_dataset
 from jax import numpy as jnp
 from jaxtyping import Float, Array, PRNGKeyArray
-from typing import Any, Dict, Generator, Tuple, Callable
+from typing import Any, Dict, Generator, Optional, Tuple, Callable
 
 dataset_name = 'karpathy/tiny_shakespeare'
-_cached_vocab_info: Dict[str, Any] | None = None
+_cached_vocab_info: Optional[Dict[str, Any]]  = None
 
 def get_dataset() -> Any:
     return load_dataset(dataset_name, trust_remote_code=True)

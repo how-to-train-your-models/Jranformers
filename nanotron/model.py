@@ -7,7 +7,7 @@ from jax import numpy as jnp
 from jaxtyping import Integer, Float, Array, PRNGKeyArray
 from typing import List, Tuple, Optional
 
-from .. import attention
+from . import attention
 from .config import GPTConfig
 
 class SwiGLU(eqx.Module):
@@ -206,7 +206,7 @@ class GPT(eqx.Module):
         initial_tokens: Integer[Array, "n_tokens"],
         max_new_tokens: int,
         temperature: float = 1.0,
-        top_k: int = None,
+        top_k: Optional[Integer] = None,
     ) -> Integer[Array, "n_tokens + max_new_tokens"]:
         """Generate text tokens given an initial sequence.
         

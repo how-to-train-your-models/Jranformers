@@ -9,7 +9,7 @@ from jaxtyping import Integer, Array
 
 from typing_extensions import Annotated
 from typing import Callable, Tuple
-from jransformers.nano_gpt import model, config, data
+from . import model, config, data
 
 
 import os
