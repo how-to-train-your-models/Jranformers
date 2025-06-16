@@ -1,7 +1,26 @@
 [project]
-name = "jranformers"
+name = "nanotron"
 version = "0.1.0"
-description = "Add your description here"
+description = "Jax based nano transformers"
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "jax[cuda12]",
+    "jaxlib",
+    "datasets",
+    "einops",
+    "equinox",
+    "jaxtyping",
+    "optax",
+    "simple-parsing",
+    "typer"
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "ruff",
+    "pre-commit",
+    "ipython",
+    "ipdb",
+]
