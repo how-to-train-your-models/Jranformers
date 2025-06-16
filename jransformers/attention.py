@@ -3,6 +3,7 @@ import equinox as eqx
 import jax
 import math
 
+from typing import Optional, Tuple
 
 from jax import numpy as jnp
 from jaxtyping import Array, Float, PRNGKeyArray
@@ -12,19 +13,21 @@ def scaled_dot_product(
     q: Float[Array, "... dims seq_len"],
     k: Float[Array, "... dims seq_len"],
     v: Float[Array, "... dims seq_len"],
-    mask=None,
-):
+    mask: Optional[Array] = None,
+) -> Tuple[Float[Array, "... seq_q dims"], Float[Array, "... seq_q seq_k"]]:
     d_k = q.shape[-1]
     logits = einops.einsum(q, k, "... seq_q dims, ... seq_k dims -> ... seq_q seq_k")
     attn_logits = logits / math.sqrt(d_k)
     if mask is not None:
         logits = jnp.where(mask == 0, jnp.finfo(logits.dtype).min, attn_logits)
+    else:
+        logits = attn_logits
     attention = jax.nn.softmax(logits, axis=-1)
     values = jnp.matmul(attention, v)
     return values, attention
 
 
-def expand_mask(mask):
+def expand_mask(mask: Array) -> Array:
     assert mask.ndim >= 2, "mask must be atleast 2 dim"
     if mask.ndim == 3:
         mask = jnp.expand_dims(mask, axis=1)
@@ -41,7 +44,7 @@ class MultiHeadAttention(eqx.Module):
     qkv_proj: eqx.nn.Linear
     output_proj: eqx.nn.Linear
 
-    def __init__(self, key: PRNGKeyArray, n_embed: int, n_heads: int):
+    def __init__(self, key: PRNGKeyArray, n_embed: int, n_heads: int) -> None:
         self.n_embed = n_embed
         self.n_heads = n_heads
 
@@ -62,7 +65,7 @@ class MultiHeadAttention(eqx.Module):
             key=key_proj,
         )
 
-    def __call__(self, x: Float[Array, "seq_len n_embed"], mask=None):
+    def __call__(self, x: Float[Array, "seq_len n_embed"], mask: Optional[Array] = None) -> Tuple[Float[Array, "seq_len n_embed"], Float[Array, "n_heads seq_len seq_len"]]:
         seq_len, n_embed = x.shape
         # a single projection layer, given the input produces Q, K, V matrices
         qkv = jax.vmap(self.qkv_proj)(x)

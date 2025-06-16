@@ -10,7 +10,7 @@ import pickle
 
 from jaxtyping import Float, Array, PRNGKeyArray
 from simple_parsing import ArgumentParser
-from typing import Tuple
+from typing import Tuple, Any
 from . import model, data, config
 
 seed = 42
@@ -20,7 +20,7 @@ os.environ["CUDA_VISIBLE_DEVICES"] = "1" # second GPU
 
 def get_optimizers(
     model: model.GPT, weight_decay: float, learning_rate: float, betas: Tuple
-):
+) -> optax.GradientTransformation:
 
     # Weight decay optimizer
     decay_optimizer = optax.chain(
@@ -33,13 +33,13 @@ def get_optimizers(
     )
 
     # Divide parameters into groups based on their dimensionality
-    def is_decay_weight(leaf):
+    def is_decay_weight(leaf: Any) -> bool:
         # Any parameters that is 2D will be weight decayed, otherwise no.
         # all weight tensors in matmuls + embeddings decay.
         # all biases and layernorms don't.
         return eqx.is_array(leaf) and leaf.ndim >= 2
 
-    def get_param_label(leaf):
+    def get_param_label(leaf: Any) -> str:
         if is_decay_weight(leaf):
             return "decay"
         return "nodecay"
@@ -57,7 +57,9 @@ def get_optimizers(
     return optimizer
 
 
-def get_loss(logits: Float[Array, "batch seq_len"], y: Float[Array, "batch seq_len"]):
+def get_loss(
+    logits: Float[Array, "batch seq_len"], y: Float[Array, "batch seq_len"]
+) -> Float[Array, "batch seq_len"]:
     logits = einops.rearrange(logits, "batch seq_len logits -> (batch seq_len) logits")
     y = einops.rearrange(y, "batch seq_len -> (batch seq_len)")
     return optax.softmax_cross_entropy_with_integer_labels(logits, y)
@@ -70,7 +72,7 @@ def compute_grads(
     key: PRNGKeyArray,
     x: Float[Array, "batch seq_len"],
     y: Float[Array, "batch seq_len"],
-):
+) -> Tuple[jnp.ndarray, Any]:
     batch_size = x.shape[0]
     sub_keys = jax.random.split(key, batch_size)    
     logits = jax.vmap(model, in_axes=(0, 0))(sub_keys, x)  # (batch_size,)
@@ -85,7 +87,7 @@ def step(
     optimizer: optax.GradientTransformation,
     state: optax.OptState,
     batch_data: Tuple[Float[Array, "batch seq_len"], Float[Array, "batch seq_len"]],
-):
+) -> Tuple[model.GPT, optax.OptState, jnp.ndarray]:
     x, y = batch_data
     loss, grads = compute_grads(model, key, x, y)
     model_params = eqx.filter(model, eqx.is_inexact_array)
@@ -98,13 +100,13 @@ def eval(
     key: PRNGKeyArray,
     model: model.GPT,
     val_data: Tuple[Float[Array, "batch seq_len"], Float[Array, "batch seq_len"]],
-):
+) -> jnp.ndarray:
     x, y = val_data
     logits = jax.vmap(model, in_axes=(None, 0))(key, x)  # (batch_size,)
     return jnp.mean(get_loss(logits, y))
 
 
-def train(train_config: config.TrainConfig, model_config: config.GPTConfig):
+def train(train_config: config.TrainConfig, model_config: config.GPTConfig) -> None:
     key = jax.random.PRNGKey(seed)
     train_key, eval_key, data_key, model_key = jax.random.split(key, 4)
 
