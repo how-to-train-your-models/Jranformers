@@ -61,7 +61,7 @@ def get_loss(
 ) -> Float[Array, "batch seq_len"]:
     logits = einops.rearrange(logits, "batch seq_len logits -> (batch seq_len) logits")
     y = einops.rearrange(y, "batch seq_len -> (batch seq_len)")
-    return optax.softmax_cross_entropy_with_integer_labels(logits, y)
+    return optax.softmax_cross_entropy_with_integer_labels(logits, y) # type: ignore
     # return jnp.mean(jax.nn.log_softmax(logits) * y)
 
 
@@ -71,7 +71,7 @@ def compute_grads(
     key: PRNGKeyArray,
     x: Float[Array, "batch seq_len"],
     y: Float[Array, "batch seq_len"],
-) -> Tuple[jnp.ndarray, Any]:
+) -> Float[Array, "1"]:
     batch_size = x.shape[0]
     sub_keys = jax.random.split(key, batch_size)    
     logits = jax.vmap(model, in_axes=(0, 0))(sub_keys, x)  # (batch_size,)
