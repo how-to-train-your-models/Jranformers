@@ -86,7 +86,7 @@ def step(
     optimizer: optax.GradientTransformation,
     state: optax.OptState,
     batch_data: Tuple[Float[Array, "batch seq_len"], Float[Array, "batch seq_len"]],
-) -> Tuple[model.GPT, optax.OptState, jnp.ndarray]:
+) -> Tuple[model.GPT, optax.OptState, Float[Array, "1"]]:
     x, y = batch_data
     loss, grads = compute_grads(model, key, x, y)
     model_params = eqx.filter(model, eqx.is_inexact_array)
